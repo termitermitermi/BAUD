@@ -1,0 +1,204 @@
+/* DYSCHAN - dark theme */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0d0d;
+  --surface: #1a1a1a;
+  --border: #2e2e2e;
+  --text: #e0e0e0;
+  --muted: #888;
+  --accent: #7f5af0;
+  --accent-hover: #a07ff0;
+  --danger: #e05252;
+  --success: #3ecf8e;
+  --font: 'Courier New', Courier, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+header p { color: var(--muted); font-size: 0.85rem; }
+
+header a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+header a:hover { color: var(--accent-hover); }
+
+main {
+  max-width: 860px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+h2 {
+  font-size: 1rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+section { margin-bottom: 2rem; }
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+input[type="text"],
+textarea {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+input[type="text"]:focus,
+textarea:focus { border-color: var(--accent); }
+
+textarea { resize: vertical; min-height: 80px; }
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  padding: 0.5rem 1.2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  align-self: flex-start;
+}
+
+button:hover { background: var(--accent-hover); }
+
+#status, #thread-status, #reply-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+  min-height: 1.2em;
+}
+
+.hidden { display: none !important; }
+
+/* Board entry list */
+.board-entry {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.board-entry a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.board-entry a:hover { color: var(--accent-hover); }
+
+/* Thread preview */
+.thread-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.thread-preview a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.thread-preview a:hover { color: var(--accent-hover); }
+
+.thread-preview .meta { color: var(--muted); font-size: 0.82rem; }
+
+/* Post */
+.post {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.avatar { display: inline-block; line-height: 0; }
+
+.post-meta { color: var(--muted); font-size: 0.8rem; }
+
+.post-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+/* Board actions */
+#board-actions { margin-bottom: 1rem; }
+
+#new-thread-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Reply section */
+#reply-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
