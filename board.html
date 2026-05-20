@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="dyschan-api-base-url" content="https://dyschan-api.dyschan.workers.dev/api">
+
+<title>DYSCHAN Board</title>
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body data-page="board">
+<header>
+  <a href="index.html">← Home</a>
+  <h1>Board</h1>
+</header>
+<main>
+  <div id="board-actions">
+    <button id="new-thread-btn">New Thread</button>
+  </div>
+  <div id="new-thread-form" class="hidden">
+    <h2>New Thread</h2>
+    <form id="thread-form">
+      <input type="text" id="user-secret" placeholder="Your secret (optional, for identity)" autocomplete="off">
+      <textarea id="thread-body" placeholder="Thread body..." rows="5" required></textarea>
+      <button type="submit">Post Thread</button>
+    </form>
+    <p id="thread-status"></p>
+  </div>
+  <div id="board-content"></div>
+</main>
+<script src="dist/crypto.js"></script>
+<script src="dist/pow.js"></script>
+<script src="dist/style.js"></script>
+<script src="dist/clientConfig.js"></script>
+<script src="dist/app.js"></script>
+</body>
+</html>
