@@ -393,7 +393,7 @@ async function loadQueue() {
             <span class="tag flagged">${escHtml(f.reason)}</span>
             <span style="margin-left:0.5rem;color:var(--muted);font-size:0.75rem">${formatTime(f.timestamp)}</span>
           </div>
-          <button class="btn sm success" onclick="resolveFlag('${escHtml(f.flag_id)}')">Resolve</button>
+          <button class="btn sm success" onclick="resolveFlag('${escHtml(f.board_id)}','${escHtml(f.thread_id)}','${escHtml(f.flag_id)}')">Resolve</button>
         </div>
         <div class="card-meta">Board: <code>${escHtml(f.board_id)}</code> · Thread: <code>${truncate(f.thread_id, 16)}</code> · Post: <code>${truncate(f.post_id, 16)}</code></div>
         ${f.details ? `<div class="card-body">${escHtml(f.details)}</div>` : ''}
@@ -405,8 +405,8 @@ async function loadQueue() {
   } catch (e) { el.innerHTML = `<div class="notice error">Error: ${escHtml(e.message)}</div>`; }
 }
 
-async function resolveFlag(flagId) {
-  const { status, data } = await adminApi({ action: 'resolve_flag', flag_id: flagId });
+async function resolveFlag(boardId, threadId, flagId) {
+  const { status, data } = await adminApi({ action: 'resolve_flag', flag_id: flagId, board_id: boardId, thread_id: threadId });
   if (status === 200) { notify('Flag resolved'); loadQueue(); }
   else notify(data.error ?? 'Error', 'error');
 }
@@ -414,7 +414,7 @@ async function resolveFlag(flagId) {
 async function deletePostFromQueue(boardId, threadId, postId, flagId) {
   const { status, data } = await adminApi({ action: 'delete_post', board_id: boardId, thread_id: threadId, post_id: postId, reason: 'flagged_content' });
   if (status === 200) {
-    await adminApi({ action: 'resolve_flag', flag_id: flagId });
+    await adminApi({ action: 'resolve_flag', flag_id: flagId, board_id: boardId, thread_id: threadId });
     notify('Post deleted and flag resolved');
     loadQueue();
   } else notify(data.error ?? 'Error', 'error');
@@ -423,7 +423,7 @@ async function deletePostFromQueue(boardId, threadId, postId, flagId) {
 async function freezeThreadFromQueue(boardId, threadId, flagId) {
   const { status, data } = await adminApi({ action: 'freeze_thread', board_id: boardId, thread_id: threadId, reason: 'flagged_content' });
   if (status === 200) {
-    await adminApi({ action: 'resolve_flag', flag_id: flagId });
+    await adminApi({ action: 'resolve_flag', flag_id: flagId, board_id: boardId, thread_id: threadId });
     notify('Thread frozen and flag resolved');
     loadQueue();
   } else notify(data.error ?? 'Error', 'error');

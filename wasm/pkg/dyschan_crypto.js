@@ -17,17 +17,6 @@ function passArray8ToWasm0(arg, malloc) {
     WASM_VECTOR_LEN = arg.length;
     return ptr;
 }
-/**
- * @param {Uint8Array} input
- * @param {number} difficulty
- * @returns {boolean}
- */
-export function validate_pow(input, difficulty) {
-    const ptr0 = passArray8ToWasm0(input, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.validate_pow(ptr0, len0, difficulty);
-    return ret !== 0;
-}
 
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
@@ -44,6 +33,18 @@ export function sha256(bytes) {
     var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v2;
+}
+
+/**
+ * @param {Uint8Array} input
+ * @param {number} difficulty
+ * @returns {boolean}
+ */
+export function validate_pow(input, difficulty) {
+    const ptr0 = passArray8ToWasm0(input, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.validate_pow(ptr0, len0, difficulty);
+    return ret !== 0;
 }
 
 const cachedTextEncoder = new TextEncoder();
