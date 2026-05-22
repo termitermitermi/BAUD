@@ -84,12 +84,15 @@ async function initIndex(): Promise<void> {
 
 function renderDefaultBoards(): void {
   const container = document.getElementById('default-boards');
+  const section = document.getElementById('boards-section');
   if (!container) return;
   const defaults = getDefaultBoards();
   if (defaults.length === 0) {
-    container.innerHTML = '<p>No default boards configured.</p>';
+    section?.classList.add('hidden');
+    container.innerHTML = '';
     return;
   }
+  section?.classList.remove('hidden');
   container.innerHTML = defaults.map(renderBoardEntry).join('');
 }
 

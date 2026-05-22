@@ -48,10 +48,6 @@ async function initIndex() {
             });
             const data = await res.json();
             if (data.board_id) {
-                saveBoard(data.board_id, {
-                    phrase,
-                    name: nameInput?.value.trim() || undefined,
-                });
                 window.location.href = `board.html#/board/${encodeURIComponent(data.board_id)}`;
             }
             else {
@@ -64,19 +60,7 @@ async function initIndex() {
                 statusEl.textContent = 'Network error: ' + err.message;
         }
     });
-    renderDefaultBoards();
     renderSavedBoards();
-}
-function renderDefaultBoards() {
-    const container = document.getElementById('default-boards');
-    if (!container)
-        return;
-    const defaults = getDefaultBoards();
-    if (defaults.length === 0) {
-        container.innerHTML = '<p>No default boards configured.</p>';
-        return;
-    }
-    container.innerHTML = defaults.map(renderBoardEntry).join('');
 }
 function renderSavedBoards() {
     const container = document.getElementById('saved-boards');
@@ -87,96 +71,22 @@ function renderSavedBoards() {
         container.innerHTML = '<p>No saved boards yet.</p>';
         return;
     }
-    container.innerHTML = saved.map(renderBoardEntry).join('');
+    container.innerHTML = saved.map(b => `<div class="board-entry"><a href="board.html#/board/${encodeURIComponent(b.id)}">${escapeHtml(b.name || b.id.slice(0, 8) + '...')}</a></div>`).join('');
 }
 function getSavedBoards() {
     try {
-        const parsed = JSON.parse(localStorage.getItem('dyschan_boards') ?? '[]');
-        if (!Array.isArray(parsed))
-            return [];
-        return parsed
-            .filter((board) => typeof board === 'object' &&
-            board !== null &&
-            typeof board.id === 'string')
-            .map(board => ({
-            id: board.id,
-            name: typeof board.name === 'string' ? board.name : undefined,
-            phrase: typeof board.phrase === 'string' ? board.phrase : undefined,
-        }));
+        return JSON.parse(localStorage.getItem('dyschan_boards') ?? '[]');
     }
     catch {
         return [];
     }
 }
-function saveBoard(id, updates = {}) {
+function saveBoard(id, name) {
     const boards = getSavedBoards();
-    const existing = boards.find(b => b.id === id);
-    if (existing) {
-        if (updates.name)
-            existing.name = updates.name;
-        if (updates.phrase)
-            existing.phrase = updates.phrase;
+    if (!boards.find(b => b.id === id)) {
+        boards.push({ id, name });
+        localStorage.setItem('dyschan_boards', JSON.stringify(boards));
     }
-    else {
-        boards.push({ id, ...updates });
-    }
-    localStorage.setItem('dyschan_boards', JSON.stringify(boards));
-}
-function renderBoardEntry(board) {
-    const boardId = escapeHtml(board.id);
-    const boardInfo = [
-        board.phrase ? escapeHtml(board.phrase) : null,
-        board.name ? escapeHtml(board.name) : null,
-    ].filter(Boolean).join(' · ');
-    const details = boardInfo || 'No details';
-    return `<div class="board-entry">
-    <a href="board.html#/board/${encodeURIComponent(board.id)}">${boardId}</a>
-    <div class="board-entry-details">${details}</div>
-  </div>`;
-}
-function getDefaultBoards() {
-    const defaultsFromConfig = typeof clientConfig?.DEFAULT_BOARDS === 'string'
-        ? clientConfig.DEFAULT_BOARDS
-        : '';
-    const defaultsFromMeta = document
-        .querySelector('meta[name="dyschan-default-boards"]')
-        ?.getAttribute('content')
-        ?.trim() ?? '';
-    return parseBoardsConfig(defaultsFromConfig || defaultsFromMeta);
-}
-function parseBoardsConfig(configValue) {
-    if (!configValue)
-        return [];
-    try {
-        const parsed = JSON.parse(configValue);
-        if (!Array.isArray(parsed))
-            return [];
-        return parsed
-            .map(entry => {
-            if (typeof entry === 'string') {
-                return { id: entry };
-            }
-            if (typeof entry !== 'object' || entry === null) {
-                return null;
-            }
-            const id = getStringProp(entry, 'id');
-            if (!id)
-                return null;
-            const phrase = getStringProp(entry, 'phrase');
-            const name = getStringProp(entry, 'name');
-            return { id, phrase, name };
-        })
-            .filter((board) => Boolean(board));
-    }
-    catch {
-        return [];
-    }
-}
-function getStringProp(value, key) {
-    if (typeof value !== 'object' || value === null)
-        return undefined;
-    const prop = value[key];
-    return typeof prop === 'string' ? prop : undefined;
 }
 // ---- Board Page ----
 async function initBoard() {
@@ -210,7 +120,7 @@ async function loadBoard(boardId) {
             container.textContent = `Error: ${data.error ?? 'unknown'}`;
             return;
         }
-        saveBoard(boardId, { name: data.board?.name });
+        saveBoard(boardId, data.board?.name);
         renderThreadList(data.threads ?? [], boardId, container);
     }
     catch (err) {
@@ -225,17 +135,10 @@ function renderThreadList(threads, boardId, container) {
     const sBoardId = encodeURIComponent(boardId);
     container.innerHTML = threads.map(t => `
     <div class="thread-preview">
-      ${renderPostMarkup({
-        timestamp: t.created,
-        style_seed: t.style_seed ?? undefined,
-        body: t.body,
-    })}
-      <div class="thread-preview-footer">
-        <a href="thread.html#/thread/${sBoardId}/${encodeURIComponent(t.thread_id)}">
-          ${escapeHtml(formatReplyCount(t.post_count))}
-        </a>
-        <span class="meta">Thread ${escapeHtml(t.thread_id.slice(0, 8))}... · last: ${escapeHtml(new Date((t.last_post ?? 0) * 1000).toLocaleString())}</span>
-      </div>
+      <a href="thread.html#/thread/${sBoardId}/${encodeURIComponent(t.thread_id)}">
+        Thread ${escapeHtml(t.thread_id.slice(0, 8))}...
+      </a>
+      <span class="meta">${escapeHtml(String(t.post_count ?? 0))} posts · last: ${escapeHtml(new Date((t.last_post ?? 0) * 1000).toLocaleString())}</span>
     </div>
   `).join('');
 }
@@ -321,25 +224,20 @@ function renderPosts(posts, container) {
         container.innerHTML = '<p>No posts.</p>';
         return;
     }
-    container.innerHTML = posts.map(renderPostMarkup).join('');
-}
-function renderPostMarkup(data) {
-    const style = data.style_seed ? deriveStyle(data.style_seed) : null;
-    const avatarHtml = style ? style.avatar : '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="#555"/></svg>';
-    const headerColor = style ? style.headerColour : '#555555';
-    return `
-    <div class="post" style="border-left: 4px solid ${headerColor}">
-      <div class="post-header">
-        <span class="avatar">${avatarHtml}</span>
-        <span class="post-meta">${new Date((data.timestamp ?? 0) * 1000).toLocaleString()}</span>
+    container.innerHTML = posts.map(p => {
+        const style = p.style_seed ? deriveStyle(p.style_seed) : null;
+        const avatarHtml = style ? style.avatar : '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="#555"/></svg>';
+        const headerColor = style ? style.headerColour : '#555555';
+        return `
+      <div class="post" style="border-left: 4px solid ${headerColor}">
+        <div class="post-header">
+          <span class="avatar">${avatarHtml}</span>
+          <span class="post-meta">${new Date((p.timestamp ?? 0) * 1000).toLocaleString()}</span>
+        </div>
+        <div class="post-body">${escapeHtml(p.body ?? '')}</div>
       </div>
-      <div class="post-body">${escapeHtml(data.body ?? '')}</div>
-    </div>
-  `;
-}
-function formatReplyCount(postCount) {
-    const replies = Math.max(0, (postCount ?? 1) - 1);
-    return `${replies} ${replies === 1 ? 'reply' : 'replies'}`;
+    `;
+    }).join('');
 }
 async function submitPost(boardId, threadId) {
     const bodyEl = document.getElementById('reply-body');

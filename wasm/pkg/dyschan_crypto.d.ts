@@ -1,7 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
-export function validate_pow(input: Uint8Array, difficulty: number): boolean;
 export function sha256(bytes: Uint8Array): Uint8Array;
+export function validate_pow(input: Uint8Array, difficulty: number): boolean;
 export function hash_to_style_seed(hidden_trip: string, thread_id: string): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;

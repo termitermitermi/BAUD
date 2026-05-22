@@ -80,6 +80,13 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
 .audit-chain-ok { color: var(--success); }
 .audit-chain-broken { color: var(--danger); }
 .col-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.audit-event-tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 3px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid; margin-right: 0.4rem; }
+.audit-event-tag.system { border-color: var(--success); color: var(--success); }
+.audit-event-tag.admin { border-color: var(--warn); color: var(--warn); }
+.audit-link { background: none; border: none; color: var(--accent); font-family: var(--font); font-size: 0.75rem; cursor: pointer; padding: 0; text-decoration: underline; }
+.audit-link:hover { color: var(--accent-hover); }
+.audit-body-preview { color: var(--muted); font-size: 0.8rem; margin-top: 0.3rem; background: var(--bg); padding: 0.3rem 0.5rem; border-radius: 3px; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; max-height: 60px; overflow-y: auto; }
+.audit-filter-bar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -273,6 +280,12 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
         <input type="number" id="audit-limit" value="50" min="1" max="200" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:0.8rem;padding:0.25rem 0.5rem;border-radius:3px;width:70px">
         <button class="btn sm" onclick="loadAuditLog()">Refresh</button>
       </div>
+    </div>
+    <div class="audit-filter-bar">
+      <span style="color:var(--muted);font-size:0.8rem;">Show:</span>
+      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;color:var(--text)"><input type="radio" name="audit-filter" value="all" checked onchange="renderAuditLog()"> All</label>
+      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;color:var(--success)"><input type="radio" name="audit-filter" value="system" onchange="renderAuditLog()"> User activity</label>
+      <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;cursor:pointer;color:var(--warn)"><input type="radio" name="audit-filter" value="admin" onchange="renderAuditLog()"> Admin actions</label>
     </div>
     <div id="audit-content"><div class="empty-state">Loading...</div></div>
   </div>
@@ -693,6 +706,10 @@ async function unlockBoard() {
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────────────
+
+let _auditEntries = [];
+let _auditTotal = 0;
+
 async function loadAuditLog() {
   const el = document.getElementById('audit-content');
   const limit = parseInt(document.getElementById('audit-limit').value) || 50;
@@ -700,27 +717,129 @@ async function loadAuditLog() {
   try {
     const { status, data } = await adminApi({ action: 'get_audit_log', limit });
     if (status !== 200) { el.innerHTML = `<div class="notice error">${escHtml(data.error ?? 'Error')}</div>`; return; }
-    const entries = data.entries ?? [];
-    if (!entries.length) { el.innerHTML = '<div class="empty-state">No audit log entries.</div>'; return; }
-    el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">Total entries: ${data.total ?? '?'} · Showing last ${entries.length}</div>` +
-      entries.map((e, i) => {
-        const chainOk = verifyChain(entries, i);
-        return `<div class="card">
-          <div class="card-header">
-            <span class="card-title">${escHtml(e.action)}</span>
-            <span class="card-meta">${formatTime(e.timestamp)}</span>
-          </div>
-          <div class="card-meta">
-            Role: <strong>${escHtml(e.admin_role)}</strong> ·
-            ID: <code>${escHtml(e.id)}</code> ·
-            Chain: <span class="${chainOk ? 'audit-chain-ok' : 'audit-chain-broken'}">${chainOk ? '✓ OK' : '✗ BROKEN'}</span>
-          </div>
-          ${e.reason ? `<div style="color:var(--muted);font-size:0.8rem;margin-top:0.3rem">Reason: ${escHtml(e.reason)}</div>` : ''}
-          <div style="font-size:0.75rem;color:var(--muted);margin-top:0.3rem"><pre style="overflow:auto;max-height:80px">${escHtml(JSON.stringify(e.params, null, 2))}</pre></div>
-          <div style="font-size:0.7rem;color:var(--border);margin-top:0.3rem">Hash: <code>${escHtml((e.entry_hash ?? '').slice(0,24))}…</code></div>
-        </div>`;
-      }).join('');
+    _auditEntries = data.entries ?? [];
+    _auditTotal = data.total ?? 0;
+    renderAuditLog();
   } catch (e) { el.innerHTML = `<div class="notice error">Error: ${escHtml(e.message)}</div>`; }
+}
+
+function renderAuditLog() {
+  const el = document.getElementById('audit-content');
+  const filter = document.querySelector('input[name="audit-filter"]:checked')?.value ?? 'all';
+  const entries = _auditEntries;
+
+  if (!entries.length) { el.innerHTML = '<div class="empty-state">No audit log entries.</div>'; return; }
+
+  const filtered = filter === 'all' ? entries
+    : filter === 'system' ? entries.filter(e => e.admin_role === 'system')
+    : entries.filter(e => e.admin_role !== 'system');
+
+  if (!filtered.length) { el.innerHTML = '<div class="empty-state">No entries match the selected filter.</div>'; return; }
+
+  el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">Total entries: ${_auditTotal} · Showing ${filtered.length} of last ${entries.length} fetched</div>` +
+    filtered.map((e, i) => {
+      const chainOk = verifyChain(entries, entries.indexOf(e));
+      const isSystem = e.admin_role === 'system';
+      const p = e.params ?? {};
+
+      // Build the event label and icon
+      const eventLabels = {
+        board_created: '📋 Board created',
+        thread_created: '🧵 Thread created',
+        post_created: '💬 Post created',
+        delete_post: '🗑 Post deleted',
+        delete_thread: '🗑 Thread deleted',
+        freeze_thread: '❄ Thread frozen',
+        unfreeze_thread: '✅ Thread unfrozen',
+        lock_board: '🔒 Board locked',
+        unlock_board: '🔓 Board unlocked',
+        shadowban: '👤 User shadowbanned',
+        unshadowban: '👤 Shadowban removed',
+        escalate_pow: '⚡ PoW escalated',
+        rate_limit: '⏱ Rate limit set',
+        resolve_flag: '✔ Flag resolved',
+        add_badword: '🚫 Badword added',
+        remove_badword: '✅ Badword removed',
+      };
+      const label = eventLabels[e.action] ?? escHtml(e.action);
+
+      // Build navigation links for params
+      let linksHtml = '';
+
+      if (p.board_id) {
+        linksHtml += ` <button class="audit-link" onclick="auditGoBoard(${JSON.stringify(p.board_id)})">→ Board</button>`;
+      }
+      if (p.board_id && p.thread_id) {
+        linksHtml += ` <button class="audit-link" onclick="auditGoThread(${JSON.stringify(p.board_id)},${JSON.stringify(p.thread_id)})">→ Thread</button>`;
+      }
+      if (p.board_id && p.thread_id && p.post_id) {
+        linksHtml += ` <button class="audit-link" onclick="auditGoPost(${JSON.stringify(p.board_id)},${JSON.stringify(p.thread_id)},${JSON.stringify(p.post_id)})">→ Post</button>`;
+      }
+      if (p.user_hash) {
+        linksHtml += ` <button class="audit-link" onclick="auditGoUser(${JSON.stringify(p.user_hash)})">→ User</button>`;
+      }
+
+      // Key params display
+      let paramsHtml = '';
+      if (isSystem) {
+        const details = [];
+        if (p.board_id) details.push(`Board: <code title="${escHtml(p.board_id)}">${escHtml(String(p.board_id).slice(0,12))}…</code>`);
+        if (p.thread_id) details.push(`Thread: <code title="${escHtml(p.thread_id)}">${escHtml(String(p.thread_id).slice(0,12))}…</code>`);
+        if (p.post_id) details.push(`Post: <code title="${escHtml(p.post_id)}">${escHtml(String(p.post_id).slice(0,12))}…</code>`);
+        if (p.user_hash) details.push(`User: <code title="${escHtml(p.user_hash)}">${escHtml(String(p.user_hash).slice(0,12))}…</code>`);
+        if (p.name) details.push(`Name: <em>${escHtml(String(p.name))}</em>`);
+        if (details.length) paramsHtml = `<div class="card-meta" style="margin-top:0.3rem">${details.join(' · ')}</div>`;
+        if (p.body_preview) {
+          paramsHtml += `<div class="audit-body-preview">${escHtml(String(p.body_preview))}</div>`;
+        }
+      } else {
+        // Admin actions: show full params JSON
+        paramsHtml = `<div style="font-size:0.75rem;color:var(--muted);margin-top:0.3rem"><pre style="overflow:auto;max-height:80px">${escHtml(JSON.stringify(p, null, 2))}</pre></div>`;
+      }
+
+      return `<div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <span class="audit-event-tag ${isSystem ? 'system' : 'admin'}">${isSystem ? 'activity' : 'admin'}</span>${label}
+          </span>
+          <span class="card-meta">${formatTime(e.timestamp)}</span>
+        </div>
+        <div class="card-meta">
+          ${isSystem ? '' : `Role: <strong>${escHtml(e.admin_role)}</strong> · `}Chain: <span class="${chainOk ? 'audit-chain-ok' : 'audit-chain-broken'}">${chainOk ? '✓ OK' : '✗ BROKEN'}</span>
+          ${linksHtml}
+        </div>
+        ${e.reason ? `<div style="color:var(--muted);font-size:0.8rem;margin-top:0.3rem">Reason: ${escHtml(e.reason)}</div>` : ''}
+        ${paramsHtml}
+        <div style="font-size:0.7rem;color:var(--border);margin-top:0.3rem">Hash: <code>${escHtml((e.entry_hash ?? '').slice(0,24))}…</code></div>
+      </div>`;
+    }).join('');
+}
+
+function auditGoBoard(board_id) {
+  document.getElementById('bc-board').value = board_id;
+  switchTab('board', document.querySelector('[data-tab="board"]'));
+  inspectBoard();
+}
+
+function auditGoThread(board_id, thread_id) {
+  document.getElementById('ti-board').value = board_id;
+  document.getElementById('ti-thread').value = thread_id;
+  switchTab('thread', document.querySelector('[data-tab="thread"]'));
+  inspectThread();
+}
+
+function auditGoPost(board_id, thread_id, post_id) {
+  document.getElementById('pi-board').value = board_id;
+  document.getElementById('pi-thread').value = thread_id;
+  document.getElementById('pi-post').value = post_id;
+  switchTab('post', document.querySelector('[data-tab="post"]'));
+  inspectPost();
+}
+
+function auditGoUser(user_hash) {
+  document.getElementById('uh-hash').value = user_hash;
+  switchTab('user', document.querySelector('[data-tab="user"]'));
+  inspectUserHash();
 }
 
 function verifyChain(entries, i) {
