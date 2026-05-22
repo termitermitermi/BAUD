@@ -111,12 +111,14 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
 <!-- Dashboard View -->
 <div id="dashboard-view">
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('queue', this)">Mod Queue</button>
-    <button class="tab-btn" onclick="switchTab('thread', this)">Thread Inspector</button>
-    <button class="tab-btn" onclick="switchTab('post', this)">Post Inspector</button>
-    <button class="tab-btn" onclick="switchTab('user', this)">User Hash</button>
-    <button class="tab-btn" onclick="switchTab('board', this)">Board Controls</button>
-    <button class="tab-btn" onclick="switchTab('audit', this)">Audit Log</button>
+    <button class="tab-btn active" data-tab="queue" onclick="switchTab('queue', this)">Mod Queue</button>
+    <button class="tab-btn" data-tab="boards" onclick="switchTab('boards', this)">Boards</button>
+    <button class="tab-btn" data-tab="thread" onclick="switchTab('thread', this)">Thread Inspector</button>
+    <button class="tab-btn" data-tab="post" onclick="switchTab('post', this)">Post Inspector</button>
+    <button class="tab-btn" data-tab="user" onclick="switchTab('user', this)">User Hash</button>
+    <button class="tab-btn" data-tab="board" onclick="switchTab('board', this)">Board Controls</button>
+    <button class="tab-btn" data-tab="badwords" onclick="switchTab('badwords', this)">Badwords</button>
+    <button class="tab-btn" data-tab="audit" onclick="switchTab('audit', this)">Audit Log</button>
   </div>
 
   <!-- Moderation Queue -->
@@ -126,6 +128,23 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
       <button class="btn sm" onclick="loadQueue()">Refresh</button>
     </div>
     <div id="queue-content"><div class="empty-state">Loading...</div></div>
+  </div>
+
+  <!-- Boards List -->
+  <div id="tab-boards" class="tab-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div class="section-title" style="margin-bottom:0">Boards</div>
+      <button class="btn sm" onclick="loadBoards()">Refresh</button>
+    </div>
+    <div id="boards-content"><div class="empty-state">Loading...</div></div>
+    <!-- Thread list for a selected board -->
+    <div id="boards-threads-section" style="display:none;margin-top:1.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+        <div class="section-title" style="margin-bottom:0">Threads in board: <code id="boards-threads-board-id"></code></div>
+        <button class="btn sm muted" onclick="hideBoardThreads()">✕ Close</button>
+      </div>
+      <div id="boards-threads-content"><div class="empty-state">Loading...</div></div>
+    </div>
   </div>
 
   <!-- Thread Inspector -->
@@ -227,6 +246,22 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Badwords -->
+  <div id="tab-badwords" class="tab-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div class="section-title" style="margin-bottom:0">Badwords Filter</div>
+      <button class="btn sm" onclick="loadBadwords()">Refresh</button>
+    </div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="section-title">Add Badword</div>
+      <div class="search-row">
+        <div class="field"><label>Word or phrase (case-insensitive)</label><input type="text" id="bw-input" placeholder="e.g. spamword" autocomplete="off"></div>
+        <button class="btn danger" onclick="addBadword()">Add</button>
+      </div>
+    </div>
+    <div id="badwords-content"><div class="empty-state">Loading...</div></div>
   </div>
 
   <!-- Audit Log -->
@@ -375,6 +410,8 @@ function switchTab(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'queue') loadQueue();
   if (name === 'audit') loadAuditLog();
+  if (name === 'boards') loadBoards();
+  if (name === 'badwords') loadBadwords();
 }
 
 // ─── Moderation Queue ────────────────────────────────────────────────────────
@@ -540,7 +577,7 @@ async function deletePost() {
 async function shadowbanFromPost() {
   if (!_currentPostUserHash) { notify('No user hash found for this post', 'warn'); return; }
   document.getElementById('uh-hash').value = _currentPostUserHash;
-  const userTabBtn = document.querySelectorAll('.tab-btn')[3];
+  const userTabBtn = document.querySelector('.tab-btn[data-tab="user"]');
   switchTab('user', userTabBtn ?? null);
   notify('User hash loaded in User Hash tab — confirm shadowban there', 'warn');
 }
@@ -691,6 +728,120 @@ function verifyChain(entries, i) {
   if (i === entries.length - 1) return true; // last entry, no previous to verify
   const prev = entries[i + 1];
   return entries[i].prev_hash === prev.entry_hash;
+}
+
+// ─── Boards List ─────────────────────────────────────────────────────────────
+async function loadBoards() {
+  const el = document.getElementById('boards-content');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+  try {
+    const { status, data } = await adminApi({ action: 'list_boards' });
+    if (status !== 200) { el.innerHTML = `<div class="notice error">${escHtml(data.error ?? 'Error')}</div>`; return; }
+    const boards = data.boards ?? [];
+    if (!boards.length) { el.innerHTML = '<div class="empty-state">No boards found.</div>'; return; }
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">Total boards: ${boards.length}</div>` +
+      boards.map(b => `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">${escHtml(b.name ?? '(unnamed)')}</span>
+            <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+              ${b.locked ? '<span class="tag locked">LOCKED</span>' : ''}
+              <button class="btn sm" onclick="showBoardThreads('${escHtml(b.board_id)}')">View Threads</button>
+              <button class="btn sm muted" onclick="jumpToBoardControls('${escHtml(b.board_id)}')">Controls</button>
+            </div>
+          </div>
+          <div class="card-meta">
+            ID: <code>${escHtml(b.board_id)}</code> ·
+            Threads: ${b.thread_count ?? '?'} ·
+            Last update: ${formatTime(b.last_update)}
+          </div>
+        </div>`).join('');
+  } catch (e) { el.innerHTML = `<div class="notice error">Error: ${escHtml(e.message)}</div>`; }
+}
+
+async function showBoardThreads(boardId) {
+  const section = document.getElementById('boards-threads-section');
+  const el = document.getElementById('boards-threads-content');
+  document.getElementById('boards-threads-board-id').textContent = boardId;
+  section.style.display = '';
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+  try {
+    const { status, data } = await adminApi({ action: 'list_board_threads', board_id: boardId });
+    if (status !== 200) { el.innerHTML = `<div class="notice error">${escHtml(data.error ?? 'Error')}</div>`; return; }
+    const threads = data.threads ?? [];
+    if (!threads.length) { el.innerHTML = '<div class="empty-state">No threads in this board.</div>'; return; }
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">Total threads: ${threads.length}</div>` +
+      threads.map(t => `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title"><code>${escHtml(t.thread_id)}</code></span>
+            <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+              ${t.frozen ? '<span class="tag frozen">FROZEN</span>' : ''}
+              <button class="btn sm muted" onclick="jumpToThread('${escHtml(boardId)}','${escHtml(t.thread_id)}')">Inspect</button>
+            </div>
+          </div>
+          <div class="card-meta">
+            Posts: ${t.post_count ?? '?'} ·
+            Created: ${formatTime(t.created)} ·
+            Last post: ${formatTime(t.last_post)}
+          </div>
+          ${t.body ? `<div class="card-body">${escHtml(truncate(t.body, 150))}</div>` : ''}
+        </div>`).join('');
+  } catch (e) { el.innerHTML = `<div class="notice error">Error: ${escHtml(e.message)}</div>`; }
+}
+
+function hideBoardThreads() {
+  document.getElementById('boards-threads-section').style.display = 'none';
+}
+
+function jumpToBoardControls(boardId) {
+  document.getElementById('bc-board').value = boardId;
+  const boardTabBtn = document.querySelector('.tab-btn[data-tab="board"]');
+  switchTab('board', boardTabBtn ?? null);
+  inspectBoard();
+}
+
+function jumpToThread(boardId, threadId) {
+  document.getElementById('ti-board').value = boardId;
+  document.getElementById('ti-thread').value = threadId;
+  const threadTabBtn = document.querySelector('.tab-btn[data-tab="thread"]');
+  switchTab('thread', threadTabBtn ?? null);
+  inspectThread();
+}
+
+// ─── Badwords ─────────────────────────────────────────────────────────────────
+async function loadBadwords() {
+  const el = document.getElementById('badwords-content');
+  el.innerHTML = '<div class="empty-state">Loading...</div>';
+  try {
+    const { status, data } = await adminApi({ action: 'get_badwords' });
+    if (status !== 200) { el.innerHTML = `<div class="notice error">${escHtml(data.error ?? 'Error')}</div>`; return; }
+    const words = data.words ?? [];
+    if (!words.length) { el.innerHTML = '<div class="empty-state">No badwords configured.</div>'; return; }
+    el.innerHTML = `<div style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">${words.length} word(s) on the list</div>` +
+      `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;">` +
+      words.map(w => `
+        <div style="display:flex;align-items:center;gap:0.3rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:0.25rem 0.6rem;">
+          <span style="font-size:0.85rem">${escHtml(w)}</span>
+          <button class="btn sm danger" style="padding:0.1rem 0.4rem;font-size:0.7rem;" onclick="removeBadword('${escHtml(w)}')">✕</button>
+        </div>`).join('') +
+      `</div>`;
+  } catch (e) { el.innerHTML = `<div class="notice error">Error: ${escHtml(e.message)}</div>`; }
+}
+
+async function addBadword() {
+  const word = document.getElementById('bw-input').value.trim();
+  if (!word) { notify('Enter a word or phrase to add', 'warn'); return; }
+  const { status, data } = await adminApi({ action: 'add_badword', word });
+  if (status === 200) { notify(`Badword "${word}" added`); document.getElementById('bw-input').value = ''; loadBadwords(); }
+  else notify(data.error ?? 'Error', 'error');
+}
+
+async function removeBadword(word) {
+  if (!confirm(`Remove "${word}" from the badwords list?`)) return;
+  const { status, data } = await adminApi({ action: 'remove_badword', word });
+  if (status === 200) { notify(`Badword "${word}" removed`); loadBadwords(); }
+  else notify(data.error ?? 'Error', 'error');
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
