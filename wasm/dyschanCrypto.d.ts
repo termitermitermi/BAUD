@@ -1,0 +1,12 @@
+export function sha256Bytes(bytes: Uint8Array): Uint8Array;
+export function sha256HexUtf8(input: string): string;
+export function hiddenTrip(userSecret: string, boardId: string): string;
+export function hashToStyleSeed(hiddenTripHex: string, threadId: string): string;
+export function privateBoardId(sharedPhrase: string): string;
+export function bodyHash(body: string): string;
+export function threadId(timestamp: number, bodyHashHex: string): string;
+export function postId(timestamp: number, bodyHashHex: string, nonce: string): string;
+export function powPayload(timestamp: number, threadIdValue: string, boardId: string, bodyHashHex: string, salt: string, nonce: string): string;
+export function computePowHash(payload: string): string;
+export function leadingZeroBits(hexHash: string): number;
+export function validatePowPayload(payload: string, difficulty: number): boolean;
