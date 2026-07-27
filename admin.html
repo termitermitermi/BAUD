@@ -92,7 +92,11 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
 </head>
 <body>
 <header>
-  <h1>DYSCHAN Admin</h1>
+  <nav class="breadcrumb">
+    <a href="index.html">Home</a>
+    <span class="sep">›</span>
+    <span>Admin</span>
+  </nav>
   <div style="display:flex;align-items:center;gap:0.8rem;">
     <span id="role-badge" class="role-badge" style="display:none"></span>
     <button id="logout-btn" style="display:none" onclick="logout()">Logout</button>

@@ -49,6 +49,31 @@ header a {
 
 header a:hover { color: var(--accent-hover); }
 
+/* Breadcrumb navigation */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.breadcrumb .sep {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover { color: var(--accent-hover); }
+
+.breadcrumb > span:last-child {
+  color: var(--text);
+  font-weight: bold;
+}
+
 main {
   max-width: 860px;
   margin: 2rem auto;
