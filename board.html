@@ -16,6 +16,7 @@
   </nav>
 </header>
 <main>
+  <div id="board-info" class="board-info hidden"></div>
   <div id="board-actions">
     <button id="new-thread-btn">New Thread</button>
   </div>
@@ -23,6 +24,16 @@
     <h2>New Thread</h2>
     <form id="thread-form">
       <input type="text" id="user-secret" placeholder="Your secret (optional, for identity)" autocomplete="off">
+      <div id="chanid-field" class="hidden">
+        <input type="text" id="chanid" placeholder="Chan ID (identity name)" autocomplete="off" maxlength="128">
+      </div>
+      <div id="quiet-field" class="hidden">
+        <label class="checkbox-label">
+          <input type="checkbox" id="quiet-post">
+          <span>Quiet post (don't bump thread)</span>
+        </label>
+        <span id="quiet-note" class="field-note hidden"></span>
+      </div>
       <textarea id="thread-body" placeholder="Thread body..." rows="5" required></textarea>
       <button type="submit">Post Thread</button>
     </form>

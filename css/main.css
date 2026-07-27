@@ -260,6 +260,99 @@ button:hover { background: var(--accent-hover); }
   margin-top: 1.5rem;
 }
 
+/* Board info panel */
+.board-info {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.board-info-name {
+  color: var(--accent);
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+.board-info-badge {
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.board-info-badge--verified {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.board-info-badge--anonymous {
+  border-color: #d4a017;
+  color: #d4a017;
+}
+
+.board-info-badge--required {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Badge tooltip icon */
+.badge-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: bold;
+  cursor: help;
+  margin-left: 0.25rem;
+  line-height: 1;
+  vertical-align: middle;
+  text-decoration: none;
+  font-style: normal;
+}
+
+/* Field note (nullpost policy description) */
+.field-note {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+  font-style: italic;
+}
+
+/* Checkbox label */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/* Chanid field */
+#chanid-field {
+  transition: opacity 0.2s ease;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

@@ -233,6 +233,7 @@ async function initBoard() {
     });
     await loadBoard(boardId);
 }
+let currentBoardMeta = null;
 async function loadBoard(boardId) {
     const container = document.getElementById('board-content');
     if (!container)
@@ -247,11 +248,161 @@ async function loadBoard(boardId) {
             container.textContent = `Error: ${data.error ?? 'unknown'}`;
             return;
         }
-        saveBoard(boardId, { name: data.board?.name });
+        currentBoardMeta = (data.board ?? {});
+        saveBoard(boardId, { name: currentBoardMeta.name ?? undefined });
+        renderBoardInfo(currentBoardMeta);
         renderThreadList(data.threads ?? [], boardId, container);
+        adaptToBoardConfig(currentBoardMeta);
+        restoreChanid(boardId);
+        setupChanidAutoSave(boardId);
     }
     catch (err) {
         container.textContent = `Network error: ${err.message}`;
+    }
+}
+function renderBoardInfo(meta) {
+    const el = document.getElementById('board-info');
+    if (!el)
+        return;
+    const name = meta.name || 'Unnamed Board';
+    const mode = meta.identity_mode ?? 'chanid_optional';
+    const identityLabels = {
+        anonymous_only: 'Anonymous Only',
+        chanid_optional: 'Chan ID Optional',
+        chanid_required: 'Chan ID Required',
+        verified_only: 'Verified Only',
+    };
+    const identityLabel = identityLabels[mode] ?? 'Unknown';
+    const identityTooltips = {
+        anonymous_only: 'No identity required \u2014 all posts are fully anonymous',
+        chanid_optional: 'You may optionally provide a Chan ID to establish an identity',
+        chanid_required: 'A Chan ID is required to post',
+        verified_only: 'Only verified identities may post',
+    };
+    const badgeColourClass = mode === 'verified_only' ? 'board-info-badge--verified'
+        : mode === 'anonymous_only' ? 'board-info-badge--anonymous'
+            : mode === 'chanid_required' ? 'board-info-badge--required'
+                : '';
+    const quietLabel = meta.allow_nullpost ? 'Quiet posts allowed' : 'Quiet posts disabled';
+    const quietTooltip = meta.allow_nullpost
+        ? 'Quiet posts do not bump the thread to the top of the board'
+        : 'Quiet posting is not permitted on this board';
+    let html = `
+    <span class="board-info-name">${escapeHtml(name)}</span>
+    <span class="board-info-badge ${escapeHtml(badgeColourClass)}">
+      ${escapeHtml(identityLabel)}
+      <span class="badge-tip" title="${escapeHtml(identityTooltips[mode] ?? '')}">?</span>
+    </span>
+    <span class="board-info-badge">
+      ${escapeHtml(quietLabel)}
+      <span class="badge-tip" title="${escapeHtml(quietTooltip)}">?</span>
+    </span>`;
+    if (typeof meta.thread_count === 'number') {
+        html += `\n    <span class="board-info-badge">${meta.thread_count} ${meta.thread_count === 1 ? 'thread' : 'threads'}</span>`;
+    }
+    el.innerHTML = html;
+    el.classList.remove('hidden');
+}
+function adaptToBoardConfig(meta) {
+    const chanidField = document.getElementById('chanid-field');
+    const quietField = document.getElementById('quiet-field');
+    if (!chanidField || !quietField)
+        return;
+    const mode = meta.identity_mode ?? 'chanid_optional';
+    const chanidInput = document.getElementById('chanid');
+    if (mode === 'anonymous_only') {
+        chanidField.classList.add('hidden');
+        quietField.classList.add('hidden');
+    }
+    else {
+        const isRequired = mode === 'chanid_required' || mode === 'verified_only';
+        if (isRequired) {
+            chanidField.classList.remove('hidden');
+            if (chanidInput)
+                chanidInput.placeholder = 'Chan ID (required)';
+        }
+        else {
+            chanidField.classList.remove('hidden');
+            if (chanidInput)
+                chanidInput.placeholder = 'Chan ID (optional, for identity)';
+        }
+    }
+    if (meta.allow_nullpost === true) {
+        quietField.classList.remove('hidden');
+    }
+    else {
+        quietField.classList.add('hidden');
+    }
+    // Nullpost policy subtext
+    const quietNote = document.getElementById('quiet-note');
+    if (quietNote) {
+        const policy = meta.nullpost_policy ?? 'any';
+        if (meta.allow_nullpost && policy !== 'any') {
+            const policyLabels = {
+                chanid_only: 'Requires a Chan ID',
+                verified_only: 'Requires a verified Chan ID',
+                moderator_only: 'Moderators only',
+            };
+            quietNote.textContent = policyLabels[policy] ?? '';
+            quietNote.classList.remove('hidden');
+        }
+        else {
+            quietNote.classList.add('hidden');
+        }
+    }
+}
+/**
+ * Restore a previously saved chanid for the given board from localStorage.
+ */
+function restoreChanid(boardId) {
+    const input = document.getElementById('chanid');
+    if (!input)
+        return;
+    const saved = getSavedChanid(boardId);
+    if (saved)
+        input.value = saved;
+}
+/**
+ * Save the chanid for the given board to localStorage.
+ */
+function saveChanid(boardId, value) {
+    if (!value) {
+        localStorage.removeItem(`dyschan_chanid_${boardId}`);
+    }
+    else {
+        localStorage.setItem(`dyschan_chanid_${boardId}`, value);
+    }
+}
+function getSavedChanid(boardId) {
+    return localStorage.getItem(`dyschan_chanid_${boardId}`);
+}
+/**
+ * Auto-save chanid to localStorage on each input change.
+ */
+function setupChanidAutoSave(boardId) {
+    const input = document.getElementById('chanid');
+    if (!input)
+        return;
+    // Remove stale listener by cloning (avoids duplicate registrations)
+    const newInput = input.cloneNode(true);
+    input.parentNode?.replaceChild(newInput, input);
+    newInput.addEventListener('input', () => {
+        saveChanid(boardId, newInput.value);
+    });
+}
+async function fetchBoardMeta(boardId) {
+    try {
+        const boardUrl = new URL(BOARD_ENDPOINT);
+        boardUrl.searchParams.set('board_id', boardId);
+        boardUrl.searchParams.set('limit', '0');
+        const res = await fetch(boardUrl.href);
+        if (!res.ok)
+            return null;
+        const data = await res.json();
+        return (data.board ?? null);
+    }
+    catch {
+        return null;
     }
 }
 function renderThreadList(threads, boardId, container) {
@@ -280,11 +431,15 @@ async function submitThread(boardId) {
     const bodyEl = document.getElementById('thread-body');
     const statusEl = document.getElementById('thread-status');
     const secretEl = document.getElementById('user-secret');
+    const chanidEl = document.getElementById('chanid');
+    const quietEl = document.getElementById('quiet-post');
     const body = bodyEl?.value.trim() ?? '';
     if (!body)
         return;
     if (statusEl)
         statusEl.textContent = 'Computing PoW...';
+    const chanid = chanidEl?.value.trim() || undefined;
+    const quiet = quietEl?.checked || undefined;
     const timestamp = Math.floor(Date.now() / 1000);
     const bh = await bodyHash(body);
     const salt = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -298,10 +453,15 @@ async function submitThread(boardId) {
     if (statusEl)
         statusEl.textContent = 'Posting...';
     try {
+        const payload = { board_id: boardId, timestamp, body, body_hash: bh, pow, style_seed: styleSeedVal, client_meta: { version: '0.9.0' } };
+        if (chanid)
+            payload.chanid = chanid;
+        if (quiet)
+            payload.quiet = true;
         const res = await fetch(THREAD_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ board_id: boardId, timestamp, body, body_hash: bh, pow, style_seed: styleSeedVal, client_meta: { version: '0.9.0' } }),
+            body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (data.thread_id) {
@@ -339,6 +499,15 @@ async function initThread() {
         e.preventDefault();
         await submitPost(boardId, threadId);
     });
+    // Fetch board meta for UI adaptation (don't block thread load on failure)
+    const meta = await fetchBoardMeta(boardId);
+    if (meta) {
+        currentBoardMeta = meta;
+        renderBoardInfo(meta);
+        adaptToBoardConfig(meta);
+        restoreChanid(boardId);
+        setupChanidAutoSave(boardId);
+    }
     await loadThread(boardId, threadId);
 }
 async function loadThread(boardId, threadId) {
@@ -397,11 +566,15 @@ async function submitPost(boardId, threadId) {
     const bodyEl = document.getElementById('reply-body');
     const statusEl = document.getElementById('reply-status');
     const secretEl = document.getElementById('user-secret');
+    const chanidEl = document.getElementById('chanid');
+    const quietEl = document.getElementById('quiet-post');
     const body = bodyEl?.value.trim() ?? '';
     if (!body)
         return;
     if (statusEl)
         statusEl.textContent = 'Computing PoW...';
+    const chanid = chanidEl?.value.trim() || undefined;
+    const quiet = quietEl?.checked || undefined;
     const timestamp = Math.floor(Date.now() / 1000);
     const bh = await bodyHash(body);
     const salt = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -414,10 +587,15 @@ async function submitPost(boardId, threadId) {
     if (statusEl)
         statusEl.textContent = 'Posting...';
     try {
+        const payload = { thread_id: threadId, board_id: boardId, timestamp, body, body_hash: bh, pow, style_seed: styleSeedVal, client_meta: { version: '0.9.0' } };
+        if (chanid)
+            payload.chanid = chanid;
+        if (quiet)
+            payload.quiet = true;
         const res = await fetch(POST_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ thread_id: threadId, board_id: boardId, timestamp, body, body_hash: bh, pow, style_seed: styleSeedVal, client_meta: { version: '0.9.0' } }),
+            body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (data.post_id) {
