@@ -72,7 +72,7 @@ async function initVersionFooter(): Promise<void> {
   }
 }
 
-const REQUIRED_ENDPOINTS_BY_PAGE: Record<string, (keyof DyschanClientConfig)[]> = {
+const REQUIRED_ENDPOINTS_BY_PAGE: Record<string, string[]> = {
   index: ['API_BASE_URL', 'JOIN_ENDPOINT'],
   board: ['API_BASE_URL', 'THREAD_ENDPOINT', 'BOARD_ENDPOINT'],
   thread: ['API_BASE_URL', 'POST_ENDPOINT', 'GET_THREAD_ENDPOINT', 'FLAG_ENDPOINT'],
@@ -826,7 +826,7 @@ function getRouteContext(): RouteContext {
 }
 
 function getMissingEndpointKeys(currentPage: string): string[] {
-  const requiredKeys: (keyof DyschanClientConfig)[] = REQUIRED_ENDPOINTS_BY_PAGE[currentPage] ?? [];
+  const requiredKeys: string[] = REQUIRED_ENDPOINTS_BY_PAGE[currentPage] ?? [];
   return requiredKeys.filter(key => !ENDPOINTS[key]);
 }
 

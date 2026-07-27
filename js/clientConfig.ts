@@ -1,4 +1,4 @@
-export interface DyschanClientConfig {
+interface DyschanClientConfig {
   API_BASE_URL?: string;
   JOIN_ENDPOINT?: string;
   THREAD_ENDPOINT?: string;
@@ -9,7 +9,7 @@ export interface DyschanClientConfig {
   [key: string]: string | undefined;
 }
 
-export function configureClient(global: typeof globalThis) {
+function configureClient(global: typeof globalThis) {
   const win = global as typeof globalThis & { DYSCHAN_CLIENT_CONFIG?: DyschanClientConfig };
   const runtimeConfig: DyschanClientConfig = win.DYSCHAN_CLIENT_CONFIG ?? {};
   const defaultOrigin = (global as typeof globalThis & { location?: { origin: string } }).location?.origin ?? 'http://localhost';
@@ -39,7 +39,7 @@ export function configureClient(global: typeof globalThis) {
   win.DYSCHAN_CLIENT_CONFIG = { ...runtimeConfig, ...endpoints };
 }
 
-export function initializeClientConfig(global: typeof globalThis) {
+function initializeClientConfig(global: typeof globalThis) {
   configureClient(global);
 }
 

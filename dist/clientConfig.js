@@ -1,4 +1,5 @@
-export function configureClient(global) {
+"use strict";
+function configureClient(global) {
     const win = global;
     const runtimeConfig = win.DYSCHAN_CLIENT_CONFIG ?? {};
     const defaultOrigin = global.location?.origin ?? 'http://localhost';
@@ -21,7 +22,7 @@ export function configureClient(global) {
     };
     win.DYSCHAN_CLIENT_CONFIG = { ...runtimeConfig, ...endpoints };
 }
-export function initializeClientConfig(global) {
+function initializeClientConfig(global) {
     configureClient(global);
 }
 initializeClientConfig(globalThis);
