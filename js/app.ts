@@ -8,6 +8,7 @@ interface DyschanClientConfig {
   BOARD_ENDPOINT?: string;
   GET_THREAD_ENDPOINT?: string;
   FLAG_ENDPOINT?: string;
+  BOARDS_ENDPOINT?: string;
   DEFAULT_BOARDS?: string;
 }
 
@@ -28,6 +29,7 @@ const {
   BOARD_ENDPOINT,
   GET_THREAD_ENDPOINT,
   FLAG_ENDPOINT,
+  BOARDS_ENDPOINT,
 } = clientConfig ?? {};
 
 const ENDPOINTS: DyschanClientConfig = {
@@ -38,6 +40,7 @@ const ENDPOINTS: DyschanClientConfig = {
   BOARD_ENDPOINT,
   GET_THREAD_ENDPOINT,
   FLAG_ENDPOINT,
+  BOARDS_ENDPOINT,
 };
 
 function getVersionEndpoint(apiBaseUrl?: string): string | null {
@@ -123,6 +126,35 @@ async function initIndex(): Promise<void> {
 
   renderDefaultBoards();
   renderSavedBoards();
+  loadPublicBoards();
+}
+
+async function loadPublicBoards(): Promise<void> {
+  const container = document.getElementById('public-boards');
+  if (!container) return;
+  if (!BOARDS_ENDPOINT) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = 'Loading...';
+  try {
+    const res = await fetch(BOARDS_ENDPOINT, { headers: { Accept: 'application/json' } });
+    if (!res.ok) { container.innerHTML = ''; return; }
+    const data = await res.json() as { boards?: Array<{ board_id: string; name?: string | null; locked?: boolean; thread_count?: number }> };
+    const boards = data.boards ?? [];
+    if (boards.length === 0) { container.innerHTML = '<p class="empty-state">No public boards available.</p>'; return; }
+    container.innerHTML = boards.map(b => {
+      const bid = encodeURIComponent(b.board_id);
+      return `<div class="board-entry">
+        <a href="board.html#/board/${bid}">
+          <div class="board-entry-name">${escapeHtml(b.name ?? '(unnamed)')}</div>
+          <div class="board-entry-details">ID: ${escapeHtml(b.board_id.slice(0, 12))}… · ${b.thread_count ?? 0} threads${b.locked ? ' · 🔒' : ''}</div>
+        </a>
+      </div>`;
+    }).join('');
+  } catch {
+    container.innerHTML = '';
+  }
 }
 
 function renderDefaultBoards(): void {

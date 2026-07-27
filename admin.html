@@ -278,6 +278,7 @@ header .role-badge.viewer { border-color: var(--success); color: var(--success);
           </select>
         </div>
         <div class="field"><label>Max Bumps Per Thread (empty = unlimited)</label><input type="number" id="bc-max-bumps" placeholder="e.g. 5" min="0"></div>
+        <div class="field"><label><input type="checkbox" id="bc-is-public"> Public board (visible in discovery)</label></div>
         <div class="col-actions">
           <button class="btn success" onclick="updateBoardConfig()">Update Config</button>
         </div>
@@ -710,6 +711,7 @@ async function inspectBoard() {
       <div class="card-header">
         <span class="card-title">Board: <code>${escHtml(board_id)}</code></span>
         ${data.locked ? '<span class="tag locked">LOCKED</span>' : ''}
+        ${board.is_public ? '<span class="tag" style="background:var(--success);color:#000">PUBLIC</span>' : ''}
       </div>
       <div class="card-meta">Name: ${escHtml(board.name ?? '(none)')} · Threads: ${board.thread_count ?? '?'} · Last update: ${formatTime(board.last_update)}</div>
     </div>`;
@@ -725,6 +727,7 @@ async function inspectBoard() {
     } else {
       document.getElementById('bc-max-bumps').value = '';
     }
+    document.getElementById('bc-is-public').checked = !!board.is_public;
   } catch (e) { el.innerHTML = `<div class="notice error">Error: ${escHtml(e.message)}</div>`; }
 }
 
@@ -764,6 +767,8 @@ async function updateBoardConfig() {
 
   const bumps = document.getElementById('bc-max-bumps').value.trim();
   body['max_bumps_per_thread'] = bumps ? parseInt(bumps, 10) : null;
+
+  body['is_public'] = document.getElementById('bc-is-public').checked;
 
   const { status, data } = await adminApi(body);
   if (status === 200) {
@@ -934,6 +939,7 @@ async function loadBoards() {
             <span class="card-title">${escHtml(b.name ?? '(unnamed)')}</span>
             <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
               ${b.locked ? '<span class="tag locked">LOCKED</span>' : ''}
+              ${b.isPublic ? '<span class="tag" style="background:var(--success);color:#000;font-size:0.7rem">PUBLIC</span>' : ''}
               <button class="btn sm" onclick="showBoardThreads('${escHtml(b.board_id)}')">View Threads</button>
               <button class="btn sm muted" onclick="jumpToBoardControls('${escHtml(b.board_id)}')">Controls</button>
             </div>

@@ -2,7 +2,7 @@
 const DIFFICULTY = 16;
 const SITE_NAME = 'DYSCHAN';
 const clientConfig = window.DYSCHAN_CLIENT_CONFIG;
-const { API_BASE_URL, JOIN_ENDPOINT, THREAD_ENDPOINT, POST_ENDPOINT, BOARD_ENDPOINT, GET_THREAD_ENDPOINT, FLAG_ENDPOINT, } = clientConfig ?? {};
+const { API_BASE_URL, JOIN_ENDPOINT, THREAD_ENDPOINT, POST_ENDPOINT, BOARD_ENDPOINT, GET_THREAD_ENDPOINT, FLAG_ENDPOINT, BOARDS_ENDPOINT, } = clientConfig ?? {};
 const ENDPOINTS = {
     API_BASE_URL,
     JOIN_ENDPOINT,
@@ -11,6 +11,7 @@ const ENDPOINTS = {
     BOARD_ENDPOINT,
     GET_THREAD_ENDPOINT,
     FLAG_ENDPOINT,
+    BOARDS_ENDPOINT,
 };
 function getVersionEndpoint(apiBaseUrl) {
     if (!apiBaseUrl)
@@ -100,6 +101,42 @@ async function initIndex() {
     });
     renderDefaultBoards();
     renderSavedBoards();
+    loadPublicBoards();
+}
+async function loadPublicBoards() {
+    const container = document.getElementById('public-boards');
+    if (!container)
+        return;
+    if (!BOARDS_ENDPOINT) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = 'Loading...';
+    try {
+        const res = await fetch(BOARDS_ENDPOINT, { headers: { Accept: 'application/json' } });
+        if (!res.ok) {
+            container.innerHTML = '';
+            return;
+        }
+        const data = await res.json();
+        const boards = data.boards ?? [];
+        if (boards.length === 0) {
+            container.innerHTML = '<p class="empty-state">No public boards available.</p>';
+            return;
+        }
+        container.innerHTML = boards.map(b => {
+            const bid = encodeURIComponent(b.board_id);
+            return `<div class="board-entry">
+        <a href="board.html#/board/${bid}">
+          <div class="board-entry-name">${escapeHtml(b.name ?? '(unnamed)')}</div>
+          <div class="board-entry-details">ID: ${escapeHtml(b.board_id.slice(0, 12))}… · ${b.thread_count ?? 0} threads${b.locked ? ' · 🔒' : ''}</div>
+        </a>
+      </div>`;
+        }).join('');
+    }
+    catch {
+        container.innerHTML = '';
+    }
 }
 function renderDefaultBoards() {
     const container = document.getElementById('default-boards');
