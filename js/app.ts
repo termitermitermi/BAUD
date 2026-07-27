@@ -365,6 +365,16 @@ async function initThread(): Promise<void> {
     return;
   }
 
+  // Set board breadcrumb from saved boards
+  const saved = getSavedBoards();
+  const board = saved.find(b => b.id === boardId);
+  const boardLink = document.getElementById('board-link') as HTMLAnchorElement | null;
+  if (boardLink) {
+    boardLink.textContent = board?.name ?? boardId;
+    const encoded = encodeURIComponent(boardId);
+    boardLink.href = `board.html?board_id=${encoded}#/board/${encoded}`;
+  }
+
   document.getElementById('reply-form')?.addEventListener('submit', async (e: Event) => {
     e.preventDefault();
     await submitPost(boardId, threadId);
@@ -391,6 +401,10 @@ async function loadThread(boardId: string, threadId: string): Promise<void> {
     const res = await fetch(threadUrl.href);
     const data = await res.json() as { posts?: PostData[]; error?: string };
     if (!res.ok) { container.textContent = `Error: ${data.error ?? 'unknown'}`; return; }
+    // Update breadcrumb and page title
+    const titleEl = document.getElementById('thread-title');
+    if (titleEl) titleEl.textContent = threadId.slice(0, 8) + '…';
+    document.title = `Thread ${threadId.slice(0, 8)}…`;
     renderPosts(data.posts ?? [], container, boardId, threadId);
   } catch (err) {
     container.textContent = `Network error: ${(err as Error).message}`;

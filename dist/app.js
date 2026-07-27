@@ -326,6 +326,15 @@ async function initThread() {
             el.textContent = 'Missing params';
         return;
     }
+    // Set board breadcrumb from saved boards
+    const saved = getSavedBoards();
+    const board = saved.find(b => b.id === boardId);
+    const boardLink = document.getElementById('board-link');
+    if (boardLink) {
+        boardLink.textContent = board?.name ?? boardId;
+        const encoded = encodeURIComponent(boardId);
+        boardLink.href = `board.html?board_id=${encoded}#/board/${encoded}`;
+    }
     document.getElementById('reply-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await submitPost(boardId, threadId);
@@ -347,6 +356,11 @@ async function loadThread(boardId, threadId) {
             container.textContent = `Error: ${data.error ?? 'unknown'}`;
             return;
         }
+        // Update breadcrumb and page title
+        const titleEl = document.getElementById('thread-title');
+        if (titleEl)
+            titleEl.textContent = threadId.slice(0, 8) + '…';
+        document.title = `Thread ${threadId.slice(0, 8)}…`;
         renderPosts(data.posts ?? [], container, boardId, threadId);
     }
     catch (err) {
