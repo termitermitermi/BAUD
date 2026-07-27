@@ -1,5 +1,6 @@
 "use strict";
 const DIFFICULTY = 16;
+const SITE_NAME = 'DYSCHAN';
 const clientConfig = window.DYSCHAN_CLIENT_CONFIG;
 const { API_BASE_URL, JOIN_ENDPOINT, THREAD_ENDPOINT, POST_ENDPOINT, BOARD_ENDPOINT, GET_THREAD_ENDPOINT, } = clientConfig ?? {};
 const ENDPOINTS = {
@@ -10,6 +11,35 @@ const ENDPOINTS = {
     BOARD_ENDPOINT,
     GET_THREAD_ENDPOINT,
 };
+function getVersionEndpoint(apiBaseUrl) {
+    if (!apiBaseUrl)
+        return null;
+    return new URL('version', `${apiBaseUrl}/`).href;
+}
+async function initVersionFooter() {
+    const footer = document.getElementById('version-footer');
+    if (!footer)
+        return;
+    const versionEndpoint = getVersionEndpoint(API_BASE_URL);
+    if (!versionEndpoint) {
+        footer.innerHTML = 'Version info unavailable';
+        return;
+    }
+    footer.textContent = 'Loading version info...';
+    try {
+        const res = await fetch(versionEndpoint, { headers: { Accept: 'application/json' } });
+        if (!res.ok)
+            throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const uiVersion = data.ui_version || 'unknown';
+        const uiCommit = data.ui_commit || 'unknown';
+        const workerVersion = data.worker_version || 'unknown';
+        footer.innerHTML = `${escapeHtml(SITE_NAME)} UI <span>v${escapeHtml(uiVersion)}</span> · commit <code>${escapeHtml(uiCommit)}</code> · worker <code>${escapeHtml(workerVersion)}</code>`;
+    }
+    catch {
+        footer.innerHTML = 'Version info unavailable';
+    }
+}
 const REQUIRED_ENDPOINTS_BY_PAGE = {
     index: ['API_BASE_URL', 'JOIN_ENDPOINT'],
     board: ['API_BASE_URL', 'THREAD_ENDPOINT', 'BOARD_ENDPOINT'],
@@ -17,6 +47,9 @@ const REQUIRED_ENDPOINTS_BY_PAGE = {
 };
 // ---- Page Detection ----
 const page = document.body.dataset['page'] ?? '';
+void initVersionFooter().catch(error => {
+    console.error('version_footer_error', error);
+});
 const missingEndpointKeys = getMissingEndpointKeys(page);
 if (missingEndpointKeys.length > 0) {
     renderConfigError(`Missing API configuration: ${missingEndpointKeys.join(', ')}`);

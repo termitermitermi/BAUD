@@ -55,6 +55,20 @@ main {
   padding: 0 1rem;
 }
 
+.site-footer {
+  max-width: 860px;
+  margin: 0 auto 2rem;
+  padding: 0 1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.site-footer code {
+  color: var(--text);
+  font-family: inherit;
+}
+
 h2 {
   font-size: 1rem;
   color: var(--accent);

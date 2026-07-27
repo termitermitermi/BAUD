@@ -10,6 +10,14 @@ interface DyschanClientConfig {
   DEFAULT_BOARDS?: string;
 }
 
+interface VersionInfo {
+  ui_version?: string;
+  ui_commit?: string;
+  worker_version?: string;
+}
+
+const SITE_NAME = 'DYSCHAN';
+
 const clientConfig = (window as typeof window & { DYSCHAN_CLIENT_CONFIG?: DyschanClientConfig }).DYSCHAN_CLIENT_CONFIG;
 const {
   API_BASE_URL,
@@ -29,6 +37,35 @@ const ENDPOINTS: DyschanClientConfig = {
   GET_THREAD_ENDPOINT,
 };
 
+function getVersionEndpoint(apiBaseUrl?: string): string | null {
+  if (!apiBaseUrl) return null;
+  return new URL('version', `${apiBaseUrl}/`).href;
+}
+
+async function initVersionFooter(): Promise<void> {
+  const footer = document.getElementById('version-footer');
+  if (!footer) return;
+
+  const versionEndpoint = getVersionEndpoint(API_BASE_URL);
+  if (!versionEndpoint) {
+    footer.innerHTML = 'Version info unavailable';
+    return;
+  }
+
+  footer.textContent = 'Loading version info...';
+  try {
+    const res = await fetch(versionEndpoint, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json() as VersionInfo;
+    const uiVersion = data.ui_version || 'unknown';
+    const uiCommit = data.ui_commit || 'unknown';
+    const workerVersion = data.worker_version || 'unknown';
+    footer.innerHTML = `${escapeHtml(SITE_NAME)} UI <span>v${escapeHtml(uiVersion)}</span> · commit <code>${escapeHtml(uiCommit)}</code> · worker <code>${escapeHtml(workerVersion)}</code>`;
+  } catch {
+    footer.innerHTML = 'Version info unavailable';
+  }
+}
+
 const REQUIRED_ENDPOINTS_BY_PAGE: Record<string, (keyof DyschanClientConfig)[]> = {
   index: ['API_BASE_URL', 'JOIN_ENDPOINT'],
   board: ['API_BASE_URL', 'THREAD_ENDPOINT', 'BOARD_ENDPOINT'],
@@ -37,6 +74,9 @@ const REQUIRED_ENDPOINTS_BY_PAGE: Record<string, (keyof DyschanClientConfig)[]> 
 
 // ---- Page Detection ----
 const page = (document.body.dataset['page'] as string | undefined) ?? '';
+void initVersionFooter().catch(error => {
+  console.error('version_footer_error', error);
+});
 const missingEndpointKeys = getMissingEndpointKeys(page);
 
 if (missingEndpointKeys.length > 0) {
