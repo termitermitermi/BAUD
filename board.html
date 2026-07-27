@@ -31,6 +31,13 @@
 <script src="dist/crypto.js"></script>
 <script src="dist/pow.js"></script>
 <script src="dist/style.js"></script>
+<!-- DYSCHAN_CLIENT_CONFIG_INJECTION -->
+<script>
+  window.DYSCHAN_CLIENT_CONFIG = Object.assign(window.DYSCHAN_CLIENT_CONFIG || {}, {
+    API_BASE_URL: "https://dyschan-api.dyschan.workers.dev/api",
+    JOIN_ENDPOINT: "https://dyschan-api.dyschan.workers.dev/api/join"
+  });
+</script>
 <script src="dist/clientConfig.js"></script>
 <script src="dist/app.js"></script>
 </body>
