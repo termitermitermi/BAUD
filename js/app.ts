@@ -7,6 +7,7 @@ interface DyschanClientConfig {
   POST_ENDPOINT?: string;
   BOARD_ENDPOINT?: string;
   GET_THREAD_ENDPOINT?: string;
+  FLAG_ENDPOINT?: string;
   DEFAULT_BOARDS?: string;
 }
 
@@ -26,6 +27,7 @@ const {
   POST_ENDPOINT,
   BOARD_ENDPOINT,
   GET_THREAD_ENDPOINT,
+  FLAG_ENDPOINT,
 } = clientConfig ?? {};
 
 const ENDPOINTS: DyschanClientConfig = {
@@ -35,6 +37,7 @@ const ENDPOINTS: DyschanClientConfig = {
   POST_ENDPOINT,
   BOARD_ENDPOINT,
   GET_THREAD_ENDPOINT,
+  FLAG_ENDPOINT,
 };
 
 function getVersionEndpoint(apiBaseUrl?: string): string | null {
@@ -69,7 +72,7 @@ async function initVersionFooter(): Promise<void> {
 const REQUIRED_ENDPOINTS_BY_PAGE: Record<string, (keyof DyschanClientConfig)[]> = {
   index: ['API_BASE_URL', 'JOIN_ENDPOINT'],
   board: ['API_BASE_URL', 'THREAD_ENDPOINT', 'BOARD_ENDPOINT'],
-  thread: ['API_BASE_URL', 'POST_ENDPOINT', 'GET_THREAD_ENDPOINT'],
+  thread: ['API_BASE_URL', 'POST_ENDPOINT', 'GET_THREAD_ENDPOINT', 'FLAG_ENDPOINT'],
 };
 
 // ---- Page Detection ----
@@ -190,7 +193,7 @@ function renderBoardEntry(board: SavedBoard): string {
   const boardInfo = [
     board.phrase ? escapeHtml(board.phrase) : null,
     board.name ? escapeHtml(board.name) : null,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(' \u00b7 ');
 
   const details = boardInfo || 'No details';
 
@@ -304,12 +307,12 @@ function renderThreadList(threads: ThreadSummary[], boardId: string, container: 
         timestamp: t.created,
         style_seed: t.style_seed ?? undefined,
         body: t.body,
-      })}
+      }, boardId, '')}
       <div class="thread-preview-footer">
         <a href="thread.html#/thread/${sBoardId}/${encodeURIComponent(t.thread_id)}">
           ${escapeHtml(formatReplyCount(t.post_count))}
         </a>
-        <span class="meta">Thread ${escapeHtml(t.thread_id.slice(0,8))}... · last: ${escapeHtml(new Date((t.last_post ?? 0) * 1000).toLocaleString())}</span>
+        <span class="meta">Thread ${escapeHtml(t.thread_id.slice(0,8))}... \u00b7 last: ${escapeHtml(new Date((t.last_post ?? 0) * 1000).toLocaleString())}</span>
       </div>
     </div>
   `).join('');
@@ -371,6 +374,7 @@ async function initThread(): Promise<void> {
 }
 
 interface PostData {
+  post_id?: string;
   timestamp?: number;
   style_seed?: string;
   body?: string;
@@ -387,18 +391,18 @@ async function loadThread(boardId: string, threadId: string): Promise<void> {
     const res = await fetch(threadUrl.href);
     const data = await res.json() as { posts?: PostData[]; error?: string };
     if (!res.ok) { container.textContent = `Error: ${data.error ?? 'unknown'}`; return; }
-    renderPosts(data.posts ?? [], container);
+    renderPosts(data.posts ?? [], container, boardId, threadId);
   } catch (err) {
     container.textContent = `Network error: ${(err as Error).message}`;
   }
 }
 
-function renderPosts(posts: PostData[], container: HTMLElement): void {
+function renderPosts(posts: PostData[], container: HTMLElement, boardId: string, threadId: string): void {
   if (!posts.length) { container.innerHTML = '<p>No posts.</p>'; return; }
-  container.innerHTML = posts.map(renderPostMarkup).join('');
+  container.innerHTML = posts.map(p => renderPostMarkup(p, boardId, threadId)).join('');
 }
 
-function renderPostMarkup(data: PostData): string {
+function renderPostMarkup(data: PostData, boardId: string, threadId: string): string {
   const style = data.style_seed ? deriveStyle(data.style_seed) : null;
   const avatarHtml = style ? style.avatar : '<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><rect width="50" height="50" fill="#555"/></svg>';
   const headerColor = style ? style.headerColour : '#555555';
@@ -409,6 +413,7 @@ function renderPostMarkup(data: PostData): string {
         <span class="post-meta">${new Date((data.timestamp ?? 0) * 1000).toLocaleString()}</span>
       </div>
       <div class="post-body">${escapeHtml(data.body ?? '')}</div>
+      ${data.post_id ? `<button class="report-btn" data-board-id="${escapeHtml(boardId)}" data-thread-id="${escapeHtml(threadId)}" data-post-id="${escapeHtml(data.post_id)}">Report</button>` : ''}
     </div>
   `;
 }
@@ -456,6 +461,86 @@ async function submitPost(boardId: string, threadId: string): Promise<void> {
     if (statusEl) statusEl.textContent = 'Network error: ' + (err as Error).message;
   }
 }
+
+// ---- Flag / Report ----
+async function submitFlag(): Promise<void> {
+  const boardId = (document.getElementById('flag-board-id') as HTMLInputElement).value;
+  const threadId = (document.getElementById('flag-thread-id') as HTMLInputElement).value;
+  const postId = (document.getElementById('flag-post-id') as HTMLInputElement).value;
+  const reasonEl = document.querySelector('input[name="flag-reason"]:checked') as HTMLInputElement | null;
+  const detailsEl = document.getElementById('flag-details') as HTMLTextAreaElement | null;
+  const statusEl = document.getElementById('flag-status') as HTMLElement | null;
+
+  if (!reasonEl) { if (statusEl) statusEl.textContent = 'Please select a reason.'; return; }
+  const reason = reasonEl.value;
+  const details = detailsEl?.value.trim() || undefined;
+
+  if (statusEl) statusEl.textContent = 'Computing PoW...';
+
+  const timestamp = Math.floor(Date.now() / 1000);
+  const contentHash = await sha256hex(`flag:${boardId}:${threadId}:${postId}:${reason}`);
+  const powSaltKey = 'dyschan_pow_salt';
+  const salt = localStorage.getItem(powSaltKey) ?? (() => {
+    const s = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(powSaltKey, s);
+    return s;
+  })();
+  const pow = await solvePow({ timestamp, threadId, boardId, bodyHash: contentHash, salt, difficulty: DIFFICULTY });
+
+  if (statusEl) statusEl.textContent = 'Submitting report...';
+  try {
+    const res = await fetch(FLAG_ENDPOINT!, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ board_id: boardId, thread_id: threadId, post_id: postId, reason, details, timestamp, pow }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (statusEl) statusEl.textContent = 'Report submitted. Thank you.';
+      setTimeout(() => {
+        document.getElementById('flag-modal')?.classList.add('hidden');
+      }, 1500);
+    } else {
+      if (statusEl) statusEl.textContent = 'Error: ' + JSON.stringify(data);
+    }
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Network error: ' + (err as Error).message;
+  }
+}
+
+// ---- Event delegation for report modal ----
+document.addEventListener('click', (e: MouseEvent) => {
+  if (page !== 'thread' || missingEndpointKeys.length > 0) return;
+  const target = e.target as HTMLElement;
+
+  const reportBtn = target.closest('.report-btn') as HTMLElement | null;
+  if (reportBtn) {
+    const boardId = reportBtn.dataset['boardId'] ?? '';
+    const threadId = reportBtn.dataset['threadId'] ?? '';
+    const postId = reportBtn.dataset['postId'] ?? '';
+    const boardInput = document.getElementById('flag-board-id') as HTMLInputElement | null;
+    const threadInput = document.getElementById('flag-thread-id') as HTMLInputElement | null;
+    const postInput = document.getElementById('flag-post-id') as HTMLInputElement | null;
+    if (!boardInput || !threadInput || !postInput) return;
+    boardInput.value = boardId;
+    threadInput.value = threadId;
+    postInput.value = postId;
+    const statusEl = document.getElementById('flag-status');
+    if (statusEl) statusEl.textContent = '';
+    document.getElementById('flag-modal')?.classList.remove('hidden');
+    return;
+  }
+
+  if (target.closest('.flag-submit-btn')) {
+    submitFlag();
+    return;
+  }
+
+  if (target.closest('.close-modal') || target.closest('#flag-modal') && !target.closest('.modal-content')) {
+    document.getElementById('flag-modal')?.classList.add('hidden');
+    return;
+  }
+});
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

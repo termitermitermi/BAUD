@@ -23,6 +23,26 @@
     </form>
     <p id="reply-status"></p>
   </section>
+
+  <!-- Flag/Report Modal -->
+  <div id="flag-modal" class="modal hidden">
+    <div class="modal-content">
+      <button type="button" class="close-modal" aria-label="Close report dialog">&times;</button>
+      <h3>Report Post</h3>
+      <input type="hidden" id="flag-board-id" value="">
+      <input type="hidden" id="flag-thread-id" value="">
+      <input type="hidden" id="flag-post-id" value="">
+      <div class="flag-reasons">
+        <label class="flag-reason"><input type="radio" name="flag-reason" value="spam"> Spam</label>
+        <label class="flag-reason"><input type="radio" name="flag-reason" value="abuse"> Abuse</label>
+        <label class="flag-reason"><input type="radio" name="flag-reason" value="illegal"> Illegal</label>
+        <label class="flag-reason"><input type="radio" name="flag-reason" value="other"> Other</label>
+      </div>
+      <textarea id="flag-details" placeholder="Additional details (optional)" rows="3"></textarea>
+      <button type="button" class="flag-submit-btn">Submit Report</button>
+      <p id="flag-status" class="status-text"></p>
+    </div>
+  </div>
 </main>
 <footer id="version-footer" class="site-footer">Loading version info...</footer>
 <script src="dist/crypto.js"></script>

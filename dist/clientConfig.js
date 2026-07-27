@@ -16,6 +16,7 @@ export function configureClient(global) {
         POST_ENDPOINT: makeEndpoint('post'),
         BOARD_ENDPOINT: makeEndpoint('board'),
         GET_THREAD_ENDPOINT: makeEndpoint('get-thread'),
+        FLAG_ENDPOINT: makeEndpoint('flag'),
     };
     win.DYSCHAN_CLIENT_CONFIG = { ...runtimeConfig, ...endpoints };
 }
